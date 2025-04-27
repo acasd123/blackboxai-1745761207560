@@ -1,0 +1,78 @@
+{
+  "name": "inventory-app",
+  "version": "1.0.0",
+  "description": "Offline-first inventory management system",
+  "main": "main.js",
+  "author": "Your Name",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "build:css": "postcss src/index.css -o src/index.processed.css",
+    "watch:css": "postcss src/index.css -o src/index.processed.css --watch",
+    "dev": "concurrently \"npm run watch:css\" \"cross-env BROWSER=none npm start\" \"wait-on http://localhost:3000 && electron . --no-sandbox\"",
+    "dist": "npx electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.inventoryapp",
+    "productName": "InventoryApp",
+    "files": [
+      "build/**/*",
+      "main.js",
+      "preload.js",
+      "electron/**",
+      "src/**"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "win": {
+      "sign": false,
+      "target": [
+        "portable"
+      ]
+    }
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "better-sqlite3": "^8.3.0",
+    "chart.js": "^4.3.0",
+    "electron-is-dev": "^2.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "react": "^18.2.0",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.11.2",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.3",
+    "autoprefixer": "^10.4.14",
+    "concurrently": "^8.0.1",
+    "cross-env": "^7.0.3",
+    "electron": "^24.3.0",
+    "electron-builder": "^23.6.0",
+    "postcss": "^8.4.23",
+    "postcss-cli": "^10.1.0",
+    "postcss-import": "^16.1.0",
+    "postcss-nesting": "^13.0.1",
+    "tailwindcss": "^3.4.17",
+    "wait-on": "^7.0.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
