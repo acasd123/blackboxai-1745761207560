@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
 const Sales = () => {
-  // State management
   const [sales, setSales] = useState([]);
   const [showSaleForm, setShowSaleForm] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -12,14 +11,17 @@ const Sales = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredProducts, setFilteredProducts] = useState([]);
 
-  // Load initial data
   useEffect(() => {
     loadSales();
     loadProducts();
+    loadCategories();
   }, []);
 
-  // Calculate amounts when dependencies change
   useEffect(() => {
     if (selectedProduct) {
       const totalPrice = selectedProduct.price * quantity;
@@ -30,7 +32,10 @@ const Sales = () => {
     }
   }, [selectedProduct, quantity, discount, amountPaid]);
 
-  // Data loading functions
+  useEffect(() => {
+    filterProducts();
+  }, [products, selectedCategory, searchTerm]);
+
   const loadSales = async () => {
     try {
       const sales = await window.electron.invoke('get-sales');
@@ -44,25 +49,39 @@ const Sales = () => {
     try {
       const products = await window.electron.invoke('get-products');
       setProducts(products);
+      setFilteredProducts(products);
     } catch (error) {
       console.error('Error loading products:', error);
     }
   };
 
-  // Dashboard reload function
-  const reloadDashboard = async () => {
+  const loadCategories = async () => {
     try {
-      const dashboardElement = document.querySelector('[data-component="Dashboard"]');
-      if (dashboardElement) {
-        const event = new CustomEvent('reload-dashboard');
-        dashboardElement.dispatchEvent(event);
-      }
+      const categories = await window.electron.invoke('get-categories');
+      setCategories(categories);
     } catch (error) {
-      console.error('Error reloading dashboard:', error);
+      console.error('Error loading categories:', error);
     }
   };
 
-  // Handle sale submission
+  const filterProducts = () => {
+    let filtered = products;
+
+    if (selectedCategory) {
+      filtered = filtered.filter(product => product.category_id === parseInt(selectedCategory));
+    }
+
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(search) ||
+        product.sku.toLowerCase().includes(search)
+      );
+    }
+
+    setFilteredProducts(filtered);
+  };
+
   const handleSaleSubmit = async () => {
     if (!customerName || !selectedProduct || quantity <= 0) {
       alert('Please fill all required fields');
@@ -111,7 +130,13 @@ const Sales = () => {
         setShowSaleForm(false);
         loadSales();
         loadProducts();
-        reloadDashboard();
+        
+        // Reload dashboard
+        const dashboardElement = document.querySelector('[data-component="Dashboard"]');
+        if (dashboardElement) {
+          const event = new CustomEvent('reload-dashboard');
+          dashboardElement.dispatchEvent(event);
+        }
       } else {
         alert('Error completing sale: ' + result.error);
       }
@@ -124,11 +149,11 @@ const Sales = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Sales History</h1>
         <button
           onClick={() => setShowSaleForm(true)}
-          className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
         >
           <i className="fas fa-plus mr-2"></i>
           New Sale
@@ -136,14 +161,22 @@ const Sales = () => {
       </div>
 
       {/* Sales Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Customer
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amount
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -153,24 +186,24 @@ const Sales = () => {
                   {new Date(sale.date).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{sale.customerName}</div>
-                  {sale.phoneNumber && <div className="text-sm text-gray-500">{sale.phoneNumber}</div>}
+                  <div className="text-sm font-medium text-gray-900">{sale.customer_name}</div>
+                  {sale.phone_number && <div className="text-sm text-gray-500">{sale.phone_number}</div>}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">Rs {sale.total.toFixed(2)}</div>
                   {sale.discount > 0 && (
                     <div className="text-xs text-gray-500">
-                      Discount: {sale.discount}% (Rs {sale.totalDiscount.toFixed(2)})
+                      Discount: {sale.discount}% (Rs {sale.total_discount.toFixed(2)})
                     </div>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    sale.amountLeft > 0
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    sale.amount_left > 0
                       ? 'bg-yellow-100 text-yellow-800'
                       : 'bg-green-100 text-green-800'
                   }`}>
-                    {sale.amountLeft > 0 ? 'Partial' : 'Paid'}
+                    {sale.amount_left > 0 ? 'Partial' : 'Paid'}
                   </span>
                 </td>
               </tr>
@@ -182,7 +215,7 @@ const Sales = () => {
       {/* New Sale Modal */}
       {showSaleForm && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-900">New Sale</h2>
               <button onClick={() => setShowSaleForm(false)} className="text-gray-400 hover:text-gray-500">
@@ -214,23 +247,53 @@ const Sales = () => {
               </div>
 
               {/* Product Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Product</label>
-                <select
-                  value={selectedProduct ? selectedProduct.id : ''}
-                  onChange={(e) => {
-                    const product = products.find(p => p.id === parseInt(e.target.value));
-                    setSelectedProduct(product);
-                  }}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                >
-                  <option value="">Select a product</option>
-                  {products.map(product => (
-                    <option key={product.id} value={product.id} disabled={product.stock === 0}>
-                      {product.name} - Rs {product.price.toFixed(2)} (Stock: {product.stock})
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Category</label>
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                      <option value="">All Categories</option>
+                      {categories.map(category => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Search Products</label>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search by name or SKU..."
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Product</label>
+                  <select
+                    value={selectedProduct ? selectedProduct.id : ''}
+                    onChange={(e) => {
+                      const product = products.find(p => p.id === parseInt(e.target.value));
+                      setSelectedProduct(product);
+                    }}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  >
+                    <option value="">Select a product</option>
+                    {filteredProducts.map(product => (
+                      <option key={product.id} value={product.id} disabled={product.stock === 0}>
+                        {product.name} - Rs {product.price.toFixed(2)} (Stock: {product.stock})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Quantity and Discount */}
@@ -285,14 +348,14 @@ const Sales = () => {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setShowSaleForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaleSubmit}
                   disabled={!customerName || !selectedProduct || quantity <= 0}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                 >
                   Complete Sale
                 </button>
